@@ -111,15 +111,23 @@ class Task {
   String id;
   String name;
   bool isCompleted;
+  String priority; // New field for priority
   Map<String, List<String>> schedule;
 
-  Task({required this.id, required this.name, this.isCompleted = false, required this.schedule});
+  Task({
+    required this.id,
+    required this.name,
+    this.isCompleted = false,
+    required this.priority, // Initialize priority
+    required this.schedule,
+  });
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
       'name': name,
       'isCompleted': isCompleted,
+      'priority': priority, // Include priority in JSON
       'schedule': schedule,
     };
   }
@@ -129,6 +137,7 @@ class Task {
       id: json['id'],
       name: json['name'],
       isCompleted: json['isCompleted'],
+      priority: json['priority'], // Retrieve priority from JSON
       schedule: Map<String, List<String>>.from(json['schedule']),
     );
   }
@@ -142,6 +151,7 @@ class TaskListScreen extends StatefulWidget {
 
 class _TaskListScreenState extends State<TaskListScreen> {
   final _taskController = TextEditingController();
+  String _selectedPriority = 'medium'; // Default priority
   final DatabaseReference _tasksRef = FirebaseDatabase.instance.ref().child('tasks');
   List<Task> _tasks = [];
 
@@ -149,10 +159,12 @@ class _TaskListScreenState extends State<TaskListScreen> {
   void initState() {
     super.initState();
     _tasksRef.onValue.listen((event) {
-      final taskData = event.snapshot.value as Map<dynamic, dynamic>;
-      setState(() {
-        _tasks = taskData.entries.map((e) => Task.fromJson(e.value)).toList();
-      });
+      if (event.snapshot.value != null) {
+        final taskData = Map<dynamic, dynamic>.from(event.snapshot.value as Map);
+        setState(() {
+          _tasks = taskData.entries.map((e) => Task.fromJson(e.value)).toList();
+        });
+      }
     });
   }
 
@@ -160,6 +172,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
     final task = Task(
       id: _tasksRef.push().key!,
       name: taskName,
+      priority: _selectedPriority, // Assign selected priority
       schedule: {}, // Add nested schedule here as needed
     );
     _tasksRef.child(task.id).set(task.toJson());
@@ -202,10 +215,25 @@ class _TaskListScreenState extends State<TaskListScreen> {
               decoration: InputDecoration(labelText: 'Enter task name'),
             ),
           ),
+          DropdownButton<String>(
+            value: _selectedPriority,
+            items: [
+              DropdownMenuItem(value: 'high', child: Text('High')),
+              DropdownMenuItem(value: 'medium', child: Text('Medium')),
+              DropdownMenuItem(value: 'low', child: Text('Low')),
+            ],
+            onChanged: (String? newValue) {
+              setState(() {
+                _selectedPriority = newValue!;
+              });
+            },
+          ),
           ElevatedButton(
             onPressed: () {
-              _addTask(_taskController.text);
-              _taskController.clear();
+              if (_taskController.text.isNotEmpty) {
+                _addTask(_taskController.text);
+                _taskController.clear();
+              }
             },
             child: Text('Add Task'),
           ),
@@ -216,7 +244,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
                 final task = _tasks[index];
                 return ListTile(
                   title: Text(task.name),
-                  subtitle: Text(task.schedule.toString()), // Display nested list
+                  subtitle: Text('Priority: ${task.priority}'), // Display priority
                   trailing: IconButton(
                     icon: Icon(Icons.delete),
                     onPressed: () => _deleteTask(task.id),
@@ -226,7 +254,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
                     onChanged: (bool? value) => _toggleCompletion(task),
                   ),
                   onTap: () {
-                    // Open detailed view for daily/hourly task schedule
+                    // Open detailed view for daily/hourly task schedule if needed
                   },
                 );
               },
