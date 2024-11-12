@@ -27,6 +27,8 @@ class AuthenticationScreen extends StatefulWidget {
 class _AuthenticationScreenState extends State<AuthenticationScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  bool _isLogin = true;
 
   Future<void> _login() async {
     try {
@@ -43,10 +45,29 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
     }
   }
 
+  Future<void> _register() async {
+    if (_passwordController.text != _confirmPasswordController.text) {
+      print("Passwords do not match!"); // Add proper error handling here
+      return;
+    }
+    try {
+      await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+      );
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => TaskListScreen()),
+      );
+    } catch (e) {
+      print(e); // Handle registration error
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Login')),
+      appBar: AppBar(title: Text(_isLogin ? 'Login' : 'Create Account')),
       body: Padding(
         padding: EdgeInsets.all(16.0),
         child: Column(
@@ -60,9 +81,23 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
               decoration: InputDecoration(labelText: 'Password'),
               obscureText: true,
             ),
+            if (!_isLogin)
+              TextField(
+                controller: _confirmPasswordController,
+                decoration: InputDecoration(labelText: 'Confirm Password'),
+                obscureText: true,
+              ),
             ElevatedButton(
-              onPressed: _login,
-              child: Text('Login'),
+              onPressed: _isLogin ? _login : _register,
+              child: Text(_isLogin ? 'Login' : 'Create Account'),
+            ),
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _isLogin = !_isLogin;
+                });
+              },
+              child: Text(_isLogin ? "Don't have an account? Sign up" : "Already have an account? Login"),
             ),
           ],
         ),
@@ -76,7 +111,7 @@ class Task {
   String id;
   String name;
   bool isCompleted;
-  Map<String, List<String>> schedule; // Nested list for daily/hourly tasks
+  Map<String, List<String>> schedule;
 
   Task({required this.id, required this.name, this.isCompleted = false, required this.schedule});
 
@@ -202,5 +237,3 @@ class _TaskListScreenState extends State<TaskListScreen> {
     );
   }
 }
-
-
